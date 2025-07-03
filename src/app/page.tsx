@@ -3,14 +3,29 @@
 import { signIn, useSession } from "next-auth/react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Navbar from "../components/Navbar";
 
 export default function Home() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
+  const router = useRouter();
 
-  const handleSpotifyLogin = () => {
-    signIn('spotify', { callbackUrl: '/game' });
+  const handleSpotifyLogin = async () => {
+    try {
+      await signIn('spotify', { 
+        callbackUrl: '/game',
+        redirect: true
+      });
+    } catch (error) {
+      console.error('Giriş hatası:', error);
+    }
   };
+
+  // Eğer oturum varsa otomatik olarak oyun sayfasına yönlendir
+  if (status === "authenticated" && session?.accessToken) {
+    router.push('/game');
+    return null;
+  }
 
   return (
     <>
@@ -28,15 +43,8 @@ export default function Home() {
               onClick={handleSpotifyLogin}
               className="w-full py-3 px-6 bg-[#1E3A2B] rounded-full hover:bg-[#2A4D39] transition-colors text-center"
             >
-              Connect with Spotify
+              {status === "loading" ? "Yükleniyor..." : "Connect with Spotify"}
             </button>
-            
-            <Link 
-              href="/game"
-              className="w-full py-3 px-6 bg-[#4CAF50] rounded-full hover:bg-[#45A049] transition-colors text-center"
-            >
-              Start Game
-            </Link>
           </div>
         </div>
       </div>
