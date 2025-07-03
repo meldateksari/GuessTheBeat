@@ -1,10 +1,17 @@
 "use client";
 
+import { signIn, useSession } from "next-auth/react";
 import Image from "next/image";
 import Link from "next/link";
 import Navbar from "../components/Navbar";
 
 export default function Home() {
+  const { data: session } = useSession();
+
+  const handleSpotifyLogin = () => {
+    signIn('spotify', { callbackUrl: '/game' });
+  };
+
   return (
     <>
       <Navbar />
@@ -17,12 +24,12 @@ export default function Home() {
           </p>
           
           <div className="flex flex-col gap-4 w-full max-w-xs">
-            <Link 
-              href="/game"
+            <button
+              onClick={handleSpotifyLogin}
               className="w-full py-3 px-6 bg-[#1E3A2B] rounded-full hover:bg-[#2A4D39] transition-colors text-center"
             >
               Connect with Spotify
-            </Link>
+            </button>
             
             <Link 
               href="/game"
