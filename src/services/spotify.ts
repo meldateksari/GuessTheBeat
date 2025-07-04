@@ -1,12 +1,3 @@
-interface Playlist {
-  id: string;
-  name: string;
-  images: { url: string }[];
-  tracks: {
-    total: number;
-  };
-}
-
 interface SpotifyError {
   error: {
     status: number;

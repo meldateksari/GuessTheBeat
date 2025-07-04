@@ -1,15 +1,66 @@
 "use client";
 
 import { signIn, useSession } from "next-auth/react";
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Navbar from "../components/Navbar";
 import { motion, AnimatePresence, Variants } from "framer-motion";
+import { useEffect, useRef, useState } from "react";
 
 export default function Home() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const [scrollCount, setScrollCount] = useState(0);
+  const lastScrollTime = useRef<number>(0);
+  const resetTimeout = useRef<NodeJS.Timeout | null>(null);
+
+  // Scroll olayını dinle
+  useEffect(() => {
+    const handleScroll = (e: WheelEvent) => {
+      if (e.deltaY < 0) { // Yukarı scroll
+        const now = Date.now();
+        const timeSinceLastScroll = now - lastScrollTime.current;
+
+        // İlk scroll veya son scroll'dan 2 saniye geçtiyse
+        if (scrollCount === 0 || timeSinceLastScroll >= 2000) {
+          // Sayacı artır ve konsola yazdır
+          setScrollCount(prev => {
+            const newCount = prev + 1;
+            return newCount;
+          });
+
+          // Son scroll zamanını güncelle
+          lastScrollTime.current = now;
+
+          // 5 saniye sonra sayacı sıfırlayacak zamanlayıcıyı ayarla
+          if (resetTimeout.current) {
+            clearTimeout(resetTimeout.current);
+          }
+          resetTimeout.current = setTimeout(() => {
+            setScrollCount(0);
+          }, 5000);
+
+          // Eğer 3. scroll'a ulaşıldıysa
+          if (scrollCount === 2) {
+            router.push('/keepshining');
+            setScrollCount(0);
+            if (resetTimeout.current) {
+              clearTimeout(resetTimeout.current);
+            }
+          }
+        }
+      }
+    };
+
+    window.addEventListener('wheel', handleScroll);
+
+    return () => {
+      window.removeEventListener('wheel', handleScroll);
+      if (resetTimeout.current) {
+        clearTimeout(resetTimeout.current);
+      }
+    };
+  }, [scrollCount, router]);
 
   const handleSpotifyLogin = async () => {
     try {
