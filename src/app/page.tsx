@@ -21,11 +21,6 @@ export default function Home() {
     }
   };
 
-  // Eğer oturum varsa otomatik olarak oyun sayfasına yönlendir
-  if (status === "authenticated" && session?.accessToken) {
-    router.push('/game');
-    return null;
-  }
 
   return (
     <>

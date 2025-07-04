@@ -4,6 +4,7 @@ import { useSession } from 'next-auth/react';
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { SpotifyService } from '@/services/spotify';
 
 interface SpotifyProfile {
   display_name: string;
@@ -14,44 +15,34 @@ interface SpotifyProfile {
   product: string;
 }
 
-interface PlaylistData {
-  items: {
-    id: string;
-    name: string;
-    tracks: { total: number };
-    images: { url: string }[];
-  }[];
+interface Playlist {
+  id: string;
+  name: string;
+  tracks: { total: number };
+  images: { url: string }[];
 }
 
 export default function ProfilePage() {
   const { data: session } = useSession();
   const [profile, setProfile] = useState<SpotifyProfile | null>(null);
-  const [playlists, setPlaylists] = useState<PlaylistData | null>(null);
+  const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchSpotifyData = async () => {
       if (session?.accessToken) {
         try {
           // Kullanıcı profil bilgilerini çek
-          const profileResponse = await fetch('https://api.spotify.com/v1/me', {
-            headers: {
-              Authorization: `Bearer ${session.accessToken}`,
-            },
-          });
-          const profileData = await profileResponse.json();
+          const profileData = await SpotifyService.getUserProfile(session.accessToken);
           setProfile(profileData);
 
           // Kullanıcının playlist'lerini çek
-          const playlistResponse = await fetch('https://api.spotify.com/v1/me/playlists', {
-            headers: {
-              Authorization: `Bearer ${session.accessToken}`,
-            },
-          });
-          const playlistData = await playlistResponse.json();
+          const playlistData = await SpotifyService.getUserPlaylists(session.accessToken);
           setPlaylists(playlistData);
         } catch (error) {
           console.error('Spotify verisi çekilirken hata:', error);
+          setError(error instanceof Error ? error.message : 'Veriler yüklenirken bir hata oluştu');
         }
       }
       setLoading(false);
@@ -62,6 +53,10 @@ export default function ProfilePage() {
 
   if (loading) {
     return <div className="flex justify-center items-center min-h-screen">Yükleniyor...</div>;
+  }
+
+  if (error) {
+    return <div className="flex justify-center items-center min-h-screen text-red-500">{error}</div>;
   }
 
   if (!session) {
@@ -97,7 +92,7 @@ export default function ProfilePage() {
         <div>
           <h2 className="text-2xl font-bold mb-4">Çalma Listeleri</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {playlists.items.map((playlist) => (
+            {playlists.map((playlist) => (
               <Link 
                 href={`/playlist/${playlist.id}`} 
                 key={playlist.id}
