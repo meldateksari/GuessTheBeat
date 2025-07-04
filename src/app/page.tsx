@@ -104,6 +104,13 @@ export default function Home() {
               className="flex flex-col gap-4 w-full max-w-xs"
               variants={childVariants}
             >
+              {session ? (
+                <Link href="/game" className="group relative w-full py-4 px-6 bg-emerald-500/10 rounded-xl hover:bg-emerald-500/20 transition-all duration-300 text-center overflow-hidden">
+                <span className="relative z-10 font-light tracking-wide flex items-center justify-center gap-2">
+                  Oyuna Geç
+                </span>
+                </Link>
+              ):(
               <motion.button
                 onClick={handleSpotifyLogin}
                 className="group relative w-full py-4 px-6 bg-emerald-500/10 rounded-xl hover:bg-emerald-500/20 transition-all duration-300 text-center overflow-hidden"
@@ -129,6 +136,7 @@ export default function Home() {
                   transition={{ duration: 0.5, ease: "easeInOut" }}
                 />
               </motion.button>
+              )}
             </motion.div>
           </motion.div>
         </motion.div>

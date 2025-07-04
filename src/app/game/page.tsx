@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { SpotifyService } from '@/services/spotify';
 import { DeezerService } from '@/services/deezer';
 import { getRandomSongFromPlaylists } from '@/utils/spotify';
+import WinScreen from '@/components/WinScreen';
 
 interface Playlist {
   id: string;
@@ -49,6 +50,8 @@ export default function GamePage() {
   const [showDropdown, setShowDropdown] = useState(false);
   const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [showWinScreen, setShowWinScreen] = useState(false);
+  const [guessTime, setGuessTime] = useState(LISTENING_STAGES[0]);
 
   // Deezer'dan şarkı arama fonksiyonu
   const searchDeezerTracks = async (query: string) => {
@@ -60,7 +63,7 @@ export default function GamePage() {
 
     try {
       const tracks = await DeezerService.searchTrack(query);
-      setSearchResults(tracks.slice(0, 7)); // Maksimum 7 sonuç
+      setSearchResults(tracks.slice(0, 6)); // Maksimum 6 sonuç
       setShowDropdown(true);
     } catch (error) {
       console.error('Deezer arama hatası:', error);
@@ -79,10 +82,10 @@ export default function GamePage() {
       clearTimeout(searchTimeout);
     }
 
-    // 1 saniye sonra aramayı yap
+    // 0.5 saniye sonra aramayı yap
     const newTimeout = setTimeout(() => {
       searchDeezerTracks(value);
-    }, 1000);
+    }, 500);
 
     setSearchTimeout(newTimeout);
   };
@@ -180,6 +183,7 @@ export default function GamePage() {
     const nextStageIndex = currentStageIndex + 1;
     setCurrentStageIndex(nextStageIndex);
     playSongSegment(LISTENING_STAGES[nextStageIndex]);
+    setGuessTime(LISTENING_STAGES[nextStageIndex]);
   };
 
   // Tahmini kontrol et
@@ -195,20 +199,28 @@ export default function GamePage() {
     const isCorrect = normalizedSongName.includes(normalizedGuess) || 
                      normalizedGuess.includes(normalizedSongName);
 
-    // Puan hesaplama: Erken tahmin = Daha çok puan
-    const currentStagePoints = LISTENING_STAGES.length - currentStageIndex;
-    const earnedPoints = isCorrect ? currentStagePoints * 100 : 0;
-
-    setScore(prevScore => prevScore + earnedPoints);
-    setShowAnswer(true);
-
     if (isCorrect) {
-      alert('Tebrikler! Doğru bildin!');
-      // Kısa bir süre sonra yeni şarkıya geç
-      setTimeout(() => {
-        startNewSong();
-      }, 1500);
+
+      // Puan hesaplama
+      const currentStagePoints = LISTENING_STAGES.length - currentStageIndex;
+      const earnedPoints = currentStagePoints * 100;
+      setScore(prevScore => prevScore + earnedPoints);
+      
+      // Win screen'i göster
+      setShowWinScreen(true);
     }
+  };
+
+  // Yeni oyun başlat
+  const handleNextSong = () => {
+    setShowWinScreen(false);
+    startNewSong();
+  };
+
+  // Paylaşım fonksiyonu
+  const handleShare = () => {
+    // Paylaşım mantığı buraya gelecek
+    console.log('Share clicked');
   };
 
   // Audio element için event listener
@@ -249,7 +261,7 @@ export default function GamePage() {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="flex min-h-screen bg-gradient-to-b from-[#0A1D14] to-[#0F2A1D] text-white/90"
+      className="flex h-screen bg-gradient-to-b from-[#0A1D14] to-[#0F2A1D] text-white/90 overflow-hidden"
       whileHover={{
         background: "linear-gradient(to bottom, #0C2218, #133524)",
         transition: { duration: 0.6 }
@@ -260,14 +272,14 @@ export default function GamePage() {
         initial={{ x: -50, opacity: 0 }}
         animate={{ x: 0, opacity: 1 }}
         transition={{ duration: 0.6 }}
-        className="w-80 bg-black/20 backdrop-blur-lg p-6 overflow-y-auto border-r border-white/5"
+        className="w-80 bg-black/20 backdrop-blur-lg p-6 overflow-y-auto border-r border-white/5 h-screen"
       >
         <motion.h2 
           initial={{ x: -20 }}
           animate={{ x: 0 }}
           className="text-2xl font-light tracking-wide mb-6 text-emerald-400"
         >
-          Çalma Listelerin
+          Çalma Listelerim
         </motion.h2>
         <div className="space-y-3">
           {playlists && playlists.map((playlist) => (
@@ -303,47 +315,56 @@ export default function GamePage() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8, delay: 0.2 }}
-        className="flex-1 flex flex-col items-center justify-center p-8"
+        className="flex-1 flex flex-col items-center p-8 h-screen overflow-hidden relative"
       >
-        <div className="text-center max-w-2xl w-full">
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="text-center max-w-xl w-full mt-16"
+        >
           <motion.h1 
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ duration: 0.6 }}
-            className="text-4xl font-light tracking-wide mb-6"
+            className="text-4xl font-light tracking-wide mb-4"
           >
             <span className="font-semibold text-emerald-400">Şarkıyı</span> Tahmin Et
           </motion.h1>
-          
-          {/* Score Display */}
+
+          {/* Score Display - Yeni konum */}
           <AnimatePresence>
             {gameStarted && (
               <motion.div 
-                initial={{ opacity: 0, y: -20 }}
+                initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                className="text-3xl font-light text-emerald-400/90 mb-6"
+                exit={{ opacity: 0, y: -10 }}
+                className="mb-8 text-center"
               >
-                Skor: {score}
+                <div className="text-lg font-semibold">
+                  Skor: <span className="text-emerald-400 font-bold">{score}</span>
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
 
-          <motion.p 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="text-xl font-light text-white/70 mb-10"
-          >
-            Rastgele bir şarkı dinle ve tahminde bulun!
-          </motion.p>
-          
+          {/* Debug: Şarkı Adı */}
+          {currentSongName && (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="text-sm text-yellow-400/70 mb-6"
+            >
+              Debug - Şarkı: {currentSongName}
+            </motion.div>
+          )}
+
           <motion.button 
             whileHover={{ scale: 1.05, backgroundColor: "rgba(76, 175, 80, 0.25)" }}
             whileTap={{ scale: 0.95 }}
             onClick={startNewSong}
-            className="bg-emerald-500/20 text-white/90 px-10 py-4 rounded-xl text-xl border border-emerald-500/30 hover:border-emerald-500/50 transition-all duration-300 mb-6 font-light tracking-wide"
+            className="bg-emerald-500/20 text-white/90 px-10 py-4 rounded-xl text-lg border border-emerald-500/30 hover:border-emerald-500/50 transition-all duration-300 mb-8 font-light tracking-wide shadow-lg shadow-emerald-500/10"
           >
-            {currentSongUrl ? 'Sonraki Şarkı' : 'Başla'}
+            Başla
           </motion.button>
 
           {/* Song Info & Audio Player */}
@@ -353,10 +374,10 @@ export default function GamePage() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 20 }}
-                className="mt-10 space-y-6 backdrop-blur-lg bg-white/5 p-8 rounded-2xl border border-white/10"
+                className="mt-6 space-y-4 backdrop-blur-lg bg-white/5 p-8 rounded-2xl border border-white/10 shadow-xl shadow-emerald-500/5"
               >
                 {/* Progress Bar */}
-                <div className="w-full bg-white/10 rounded-full h-2 mb-6">
+                <div className="w-full bg-white/10 rounded-full h-2 mb-4">
                   <motion.div 
                     initial={{ width: 0 }}
                     animate={{ 
@@ -371,8 +392,11 @@ export default function GamePage() {
                 <motion.div 
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  className="text-lg font-light text-emerald-400/90 mb-6"
+                  className="text-base font-light text-emerald-400/90 mb-6 flex items-center justify-center gap-2"
                 >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
                   Dinleme süresi: {LISTENING_STAGES[currentStageIndex]} saniye
                 </motion.div>
 
@@ -382,11 +406,11 @@ export default function GamePage() {
                   whileTap={{ scale: 0.98 }}
                   onClick={() => playSongSegment(LISTENING_STAGES[currentStageIndex])}
                   disabled={isPlaying}
-                  className={`relative w-20 h-20 flex items-center justify-center rounded-full transition-all duration-300 ${
+                  className={`relative w-16 h-16 flex items-center justify-center rounded-full transition-all duration-300 ${
                     isPlaying 
                       ? 'bg-emerald-500/20 cursor-not-allowed' 
                       : 'bg-emerald-500/20 hover:bg-emerald-500/30 hover:border-emerald-500/50'
-                  } border-2 border-emerald-500/30 mx-auto mb-6`}
+                  } border-2 border-emerald-500/30 mx-auto mb-4`}
                 >
                   {isPlaying ? (
                     <motion.div
@@ -462,7 +486,7 @@ export default function GamePage() {
                 <motion.div 
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  className="text-center text-white/60 text-sm mb-6"
+                  className="text-center text-white/60 text-sm mb-4"
                 >
                   {isPlaying ? 'Oynatılıyor...' : 'Dinlemek için tıkla'}
                 </motion.div>
@@ -473,7 +497,7 @@ export default function GamePage() {
                   whileTap={{ scale: 0.98 }}
                   onClick={handleSkip}
                   disabled={currentStageIndex >= LISTENING_STAGES.length - 1 || isPlaying}
-                  className={`w-full bg-[#2C5F2D]/20 text-white/90 px-6 py-4 rounded-xl mb-6 border border-[#2C5F2D]/30 transition-all duration-300 ${
+                  className={`w-full bg-[#2C5F2D]/20 text-white/90 px-6 py-3 rounded-xl mb-4 text-sm border border-[#2C5F2D]/30 transition-all duration-300 ${
                     (currentStageIndex >= LISTENING_STAGES.length - 1 || isPlaying)
                       ? 'opacity-50 cursor-not-allowed' 
                       : 'hover:border-[#2C5F2D]/50'
@@ -490,7 +514,7 @@ export default function GamePage() {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   onSubmit={handleGuessSubmit} 
-                  className="flex flex-col items-center gap-4 mb-6"
+                  className="flex flex-col items-center gap-3 mb-4"
                 >
                   <div className="relative w-full">
                     <motion.input
@@ -500,31 +524,32 @@ export default function GamePage() {
                       onChange={handleInputChange}
                       onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
                       placeholder="Şarkı adını tahmin et..."
-                      className="w-full px-6 py-3 rounded-xl bg-white/5 border border-emerald-500/30 text-white/90 focus:border-emerald-500/50 focus:outline-none transition-all duration-300 font-light"
+                      className="w-full px-4 py-2 rounded-xl bg-white/5 border border-emerald-500/30 text-white/90 focus:border-emerald-500/50 focus:outline-none transition-all duration-300 font-light text-sm"
                     />
                     <AnimatePresence>
                       {showDropdown && searchResults.length > 0 && (
                         <motion.div 
-                          initial={{ opacity: 0, y: -10 }}
+                          initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -10 }}
-                          className="absolute z-10 w-full mt-1 bg-[#0A1D14]/95 backdrop-blur-lg border border-emerald-500/30 rounded-xl shadow-lg max-h-60 overflow-y-auto"
+                          exit={{ opacity: 0, y: 10 }}
+                          className="absolute z-10 w-full bottom-[calc(100%+4px)] bg-[#0A1D14]/95 backdrop-blur-lg border border-emerald-500/30 rounded-xl shadow-lg"
                         >
-                          {searchResults.map((track) => (
-                            <motion.div
-                              key={track.id}
-                              whileHover={{ backgroundColor: "rgba(76, 175, 80, 0.2)" }}
-                              whileTap={{ scale: 0.98 }}
-                              onMouseDown={(e) => {
-                                e.preventDefault();
-                                handleSongSelect(track);
-                              }}
-                              className="w-full text-left px-6 py-3 text-white/90 hover:bg-emerald-500/20 transition-all duration-300 first:rounded-t-xl last:rounded-b-xl border-b border-emerald-500/10 last:border-b-0 cursor-pointer"
-                            >
-                              <div className="font-light">{track.title}</div>
-                              <div className="text-sm text-emerald-400/70">{track.artist.name}</div>
-                            </motion.div>
-                          ))}
+                          <div className="flex flex-col w-full">
+                            {searchResults.map((track) => (
+                              <motion.div
+                                key={track.id}
+                                whileHover={{ backgroundColor: "rgba(76, 175, 80, 0.2)" }}
+                                whileTap={{ scale: 0.98 }}
+                                onMouseDown={(e) => {
+                                  e.preventDefault();
+                                  handleSongSelect(track);
+                                }}
+                                className="w-full text-left px-4 py-2.5 text-white/90 hover:bg-emerald-500/20 transition-all duration-300 first:rounded-t-xl last:rounded-b-xl border-b border-emerald-500/10 last:border-b-0 cursor-pointer text-sm"
+                              >
+                                <div className="font-light truncate">{track.title} - {track.artist.name}</div>
+                              </motion.div>
+                            ))}
+                          </div>
                         </motion.div>
                       )}
                     </AnimatePresence>
@@ -533,7 +558,7 @@ export default function GamePage() {
                     whileHover={{ scale: 1.05, backgroundColor: "rgba(76, 175, 80, 0.25)" }}
                     whileTap={{ scale: 0.95 }}
                     type="submit"
-                    className="bg-emerald-500/20 text-white/90 px-8 py-3 rounded-xl border border-emerald-500/30 hover:border-emerald-500/50 transition-all duration-300 font-light tracking-wide"
+                    className="bg-emerald-500/20 text-white/90 px-6 py-2 rounded-xl border border-emerald-500/30 hover:border-emerald-500/50 transition-all duration-300 font-light tracking-wide text-sm"
                   >
                     Tahmin Et
                   </motion.button>
@@ -546,7 +571,7 @@ export default function GamePage() {
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -20 }}
-                      className="text-xl font-light tracking-wide text-emerald-400/90 mb-4"
+                      className="text-lg font-light tracking-wide text-emerald-400/90 mb-2"
                     >
                       Doğru Cevap: {currentSongName}
                     </motion.div>
@@ -562,8 +587,21 @@ export default function GamePage() {
               </motion.div>
             )}
           </AnimatePresence>
-        </div>
+        </motion.div>
       </motion.div>
+
+      <AnimatePresence>
+        {showWinScreen && currentSongName && (
+          <WinScreen
+            songName={currentSongName.split(' - ')[0]}
+            artistName={currentSongName.split(' - ')[1]}
+            guessTime={guessTime}
+            onNextSong={handleNextSong}
+            onShare={handleShare}
+            onBack={() => setShowWinScreen(false)}
+          />
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 } 
