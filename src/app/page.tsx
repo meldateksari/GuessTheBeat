@@ -42,7 +42,7 @@ export default function Home() {
 
           // Eğer 3. scroll'a ulaşıldıysa
           if (scrollCount === 2) {
-            router.push('/keepshining');
+            router.push('/keep-shining');
             setScrollCount(0);
             if (resetTimeout.current) {
               clearTimeout(resetTimeout.current);
