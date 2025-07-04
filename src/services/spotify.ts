@@ -14,23 +14,31 @@ interface SpotifyError {
   };
 }
 
+interface SpotifyArtist {
+  name: string;
+}
+
+interface SpotifyTrack {
+  name: string;
+  artists: SpotifyArtist[];
+}
+
 export class SpotifyService {
-  private static BASE_URL = 'https://api.spotify.com/v1';
+  private static baseUrl = 'https://api.spotify.com/v1';
 
   /**
    * Kullanıcının playlistlerini getirir
    */
-  static async getUserPlaylists(accessToken: string): Promise<Playlist[]> {
+  static async getUserPlaylists(accessToken: string) {
     try {
-      const response = await fetch(`${this.BASE_URL}/me/playlists`, {
+      const response = await fetch(`${this.baseUrl}/me/playlists`, {
         headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
+          'Authorization': `Bearer ${accessToken}`
+        }
       });
 
       if (!response.ok) {
-        const errorData = await response.json() as SpotifyError;
-        throw new Error(errorData.error.message || 'Playlist verisi alınamadı');
+        throw new Error('Spotify API yanıt vermedi');
       }
 
       const data = await response.json();
@@ -44,21 +52,20 @@ export class SpotifyService {
   /**
    * Belirli bir playlist'in şarkılarını getirir
    */
-  static async getPlaylistTracks(accessToken: string, playlistId: string) {
+  static async getPlaylistTracks(accessToken: string, playlistId: string): Promise<SpotifyTrack[]> {
     try {
-      const response = await fetch(`${this.BASE_URL}/playlists/${playlistId}/tracks`, {
+      const response = await fetch(`${this.baseUrl}/playlists/${playlistId}/tracks`, {
         headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
+          'Authorization': `Bearer ${accessToken}`
+        }
       });
 
       if (!response.ok) {
-        const errorData = await response.json() as SpotifyError;
-        throw new Error(errorData.error.message || 'Playlist şarkıları alınamadı');
+        throw new Error('Spotify API yanıt vermedi');
       }
 
       const data = await response.json();
-      return data.items;
+      return data.items.map((item: any) => item.track).filter((track: SpotifyTrack | null) => track !== null);
     } catch (error) {
       console.error('Spotify şarkı listesi hatası:', error);
       throw error;
@@ -70,7 +77,7 @@ export class SpotifyService {
    */
   static async getUserProfile(accessToken: string) {
     try {
-      const response = await fetch(`${this.BASE_URL}/me`, {
+      const response = await fetch(`${this.baseUrl}/me`, {
         headers: {
           Authorization: `Bearer ${accessToken}`,
         },

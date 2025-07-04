@@ -18,6 +18,15 @@ interface Playlist {
   };
 }
 
+interface DeezerTrack {
+  id: string;
+  title: string;
+  artist: {
+    name: string;
+  };
+  preview: string;
+}
+
 // Dinleme süreleri (saniye cinsinden)
 const LISTENING_STAGES = [0.5, 1, 3, 5, 10, 15];
 
@@ -36,7 +45,54 @@ export default function GamePage() {
   const [score, setScore] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
   const [gameStarted, setGameStarted] = useState(false);
+  const [searchResults, setSearchResults] = useState<DeezerTrack[]>([]);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Deezer'dan şarkı arama fonksiyonu
+  const searchDeezerTracks = async (query: string) => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      setShowDropdown(false);
+      return;
+    }
+
+    try {
+      const tracks = await DeezerService.searchTrack(query);
+      setSearchResults(tracks.slice(0, 7)); // Maksimum 7 sonuç
+      setShowDropdown(true);
+    } catch (error) {
+      console.error('Deezer arama hatası:', error);
+      setSearchResults([]);
+      setShowDropdown(false);
+    }
+  };
+
+  // Input değişikliğini handle et
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setGuess(value);
+
+    // Önceki timeout'u temizle
+    if (searchTimeout) {
+      clearTimeout(searchTimeout);
+    }
+
+    // 1 saniye sonra aramayı yap
+    const newTimeout = setTimeout(() => {
+      searchDeezerTracks(value);
+    }, 1000);
+
+    setSearchTimeout(newTimeout);
+  };
+
+  // Dropdown'dan şarkı seçimi
+  const handleSongSelect = (track: DeezerTrack) => {
+    setGuess(`${track.title} - ${track.artist.name}`);
+    setShowDropdown(false);
+    // Form submit işlemi kaldırıldı - kullanıcı manuel olarak Tahmin Et butonuna tıklayacak
+  };
 
   // Playlistleri getir
   useEffect(() => {
@@ -100,14 +156,14 @@ export default function GamePage() {
       // Get song URL from Deezer
       const previewUrl = await DeezerService.searchTrack(songName);
       
-      if (previewUrl) {
-        setCurrentSongUrl(previewUrl);
+      if (previewUrl && previewUrl.length > 0) {
+        setCurrentSongUrl(previewUrl[0].preview);
         // Start first stage automatically
         setTimeout(() => {
           playSongSegment(LISTENING_STAGES[0]);
         }, 500);
       } else {
-        throw new Error('Song preview not found');
+        throw new Error('Şarkı önizlemesi bulunamadı');
       }
     } catch (error) {
       console.error('Error loading song:', error);
@@ -147,7 +203,11 @@ export default function GamePage() {
     setShowAnswer(true);
 
     if (isCorrect) {
-      alert(`Congratulations! You earned ${earnedPoints} points!`);
+      alert('Tebrikler! Doğru bildin!');
+      // Kısa bir süre sonra yeni şarkıya geç
+      setTimeout(() => {
+        startNewSong();
+      }, 1500);
     }
   };
 
@@ -432,14 +492,43 @@ export default function GamePage() {
                   onSubmit={handleGuessSubmit} 
                   className="flex flex-col items-center gap-4 mb-6"
                 >
-                  <motion.input
-                    whileFocus={{ scale: 1.02 }}
-                    type="text"
-                    value={guess}
-                    onChange={(e) => setGuess(e.target.value)}
-                    placeholder="Şarkı adını tahmin et..."
-                    className="w-full px-6 py-3 rounded-xl bg-white/5 border border-emerald-500/30 text-white/90 focus:border-emerald-500/50 focus:outline-none transition-all duration-300 font-light"
-                  />
+                  <div className="relative w-full">
+                    <motion.input
+                      whileFocus={{ scale: 1.02 }}
+                      type="text"
+                      value={guess}
+                      onChange={handleInputChange}
+                      onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
+                      placeholder="Şarkı adını tahmin et..."
+                      className="w-full px-6 py-3 rounded-xl bg-white/5 border border-emerald-500/30 text-white/90 focus:border-emerald-500/50 focus:outline-none transition-all duration-300 font-light"
+                    />
+                    <AnimatePresence>
+                      {showDropdown && searchResults.length > 0 && (
+                        <motion.div 
+                          initial={{ opacity: 0, y: -10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -10 }}
+                          className="absolute z-10 w-full mt-1 bg-[#0A1D14]/95 backdrop-blur-lg border border-emerald-500/30 rounded-xl shadow-lg max-h-60 overflow-y-auto"
+                        >
+                          {searchResults.map((track) => (
+                            <motion.div
+                              key={track.id}
+                              whileHover={{ backgroundColor: "rgba(76, 175, 80, 0.2)" }}
+                              whileTap={{ scale: 0.98 }}
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                handleSongSelect(track);
+                              }}
+                              className="w-full text-left px-6 py-3 text-white/90 hover:bg-emerald-500/20 transition-all duration-300 first:rounded-t-xl last:rounded-b-xl border-b border-emerald-500/10 last:border-b-0 cursor-pointer"
+                            >
+                              <div className="font-light">{track.title}</div>
+                              <div className="text-sm text-emerald-400/70">{track.artist.name}</div>
+                            </motion.div>
+                          ))}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
                   <motion.button
                     whileHover={{ scale: 1.05, backgroundColor: "rgba(76, 175, 80, 0.25)" }}
                     whileTap={{ scale: 0.95 }}

@@ -1,15 +1,28 @@
-const BACKEND_URL = 'http://localhost:3001';
+export interface DeezerTrack {
+  id: string;
+  title: string;
+  artist: {
+    name: string;
+  };
+  preview: string;
+}
 
-export const DeezerService = {
-  async searchTrack(songName: string): Promise<string | null> {
+export class DeezerService {
+  private static baseUrl = process.env.NEXT_PUBLIC_BASE_URL || '';
+
+  static async searchTrack(songName: string): Promise<DeezerTrack[]> {
     try {
-      const response = await fetch(`${BACKEND_URL}/api/deezer/search?songName=${encodeURIComponent(songName)}`);
-      const data = await response.json();
+      const response = await fetch(`${this.baseUrl}/api/deezer/search?songName=${encodeURIComponent(songName)}`);
+      
+      if (!response.ok) {
+        throw new Error('Deezer API yanıt vermedi');
+      }
 
-      return data.previewUrl;
+      const data = await response.json();
+      return data.tracks || [];
     } catch (error) {
-      console.error('Deezer API hatası:', error);
-      return null;
+      console.error('Deezer arama hatası:', error);
+      return [];
     }
   }
-};
+}
