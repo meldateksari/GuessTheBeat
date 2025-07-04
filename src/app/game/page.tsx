@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { SpotifyService } from '@/services/spotify';
+import { DeezerService } from '@/services/deezer';
+import { getRandomSongFromPlaylists } from '@/utils/spotify';
 
 interface Playlist {
   id: string;
@@ -22,6 +24,10 @@ export default function GamePage() {
   const [error, setError] = useState<string | null>(null);
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [selectedPlaylist, setSelectedPlaylist] = useState<string | null>(null);
+  const [currentSongUrl, setCurrentSongUrl] = useState<string | null>(null);
+  const [currentSongName, setCurrentSongName] = useState<string | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Playlistleri getir
   useEffect(() => {
@@ -43,6 +49,36 @@ export default function GamePage() {
       fetchPlaylists();
     }
   }, [session]);
+
+  // Rastgele şarkı seç ve oynat
+  const getAndPlayRandomSong = async () => {
+    if (!session?.accessToken) return;
+
+    try {
+      setIsLoading(true);
+      // Spotify'dan rastgele şarkı adı al
+      const songName = await getRandomSongFromPlaylists(session.accessToken);
+      setCurrentSongName(songName);
+      
+      // Deezer'dan şarkı URL'ini al
+      const previewUrl = await DeezerService.searchTrack(songName);
+      
+      if (previewUrl) {
+        setCurrentSongUrl(previewUrl);
+        if (audioRef.current) {
+          audioRef.current.play();
+          setIsPlaying(true);
+        }
+      } else {
+        throw new Error('Şarkı önizlemesi bulunamadı');
+      }
+    } catch (error) {
+      console.error('Şarkı yüklenirken hata:', error);
+      setError(error instanceof Error ? error.message : 'Şarkı yüklenirken bir hata oluştu');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Oturum kontrolü
   useEffect(() => {
@@ -104,15 +140,30 @@ export default function GamePage() {
         <div className="text-center">
           <h1 className="text-3xl font-bold mb-4">Şarkı Tahmin Oyunu</h1>
           <p className="text-xl text-gray-400 mb-8">
-            Sol taraftan bir playlist seçin ve oyuna başlayın!
+            Başla butonuna tıklayarak rastgele bir şarkı dinleyin ve tahmin edin!
           </p>
-          {selectedPlaylist && (
-            <button 
-              onClick={() => console.log('Oyun başlatılacak:', selectedPlaylist)}
-              className="bg-[#4CAF50] text-white px-8 py-4 rounded-lg text-xl hover:bg-[#45A049]"
-            >
-              Oyunu Başlat
-            </button>
+          <button 
+            onClick={getAndPlayRandomSong}
+            className="bg-[#4CAF50] text-white px-8 py-4 rounded-lg text-xl hover:bg-[#45A049] mb-4"
+          >
+            {currentSongUrl ? 'Sonraki Şarkı' : 'Başla'}
+          </button>
+
+          {/* Song Info & Audio Player */}
+          {currentSongUrl && (
+            <div className="mt-8 space-y-4">
+              <div className="text-xl font-semibold text-[#4CAF50]">
+                Seçilen Şarkı: {currentSongName}
+              </div>
+              <audio
+                ref={audioRef}
+                src={currentSongUrl}
+                controls
+                className="w-full max-w-md"
+                onPlay={() => setIsPlaying(true)}
+                onPause={() => setIsPlaying(false)}
+              />
+            </div>
           )}
         </div>
       </div>
