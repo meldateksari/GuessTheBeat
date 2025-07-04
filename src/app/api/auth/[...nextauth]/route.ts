@@ -1,5 +1,23 @@
-import NextAuth from "next-auth";
+import NextAuth, { DefaultSession } from "next-auth";
 import SpotifyProvider from "next-auth/providers/spotify";
+declare module "next-auth" {
+  interface Session extends DefaultSession {
+    accessToken: string | undefined;
+    error: string | null | undefined;
+    user: {
+      id: string;
+    } & DefaultSession["user"]
+  }
+}
+
+declare module "next-auth/jwt" {
+  interface JWT {
+    accessToken: string | undefined;
+    refreshToken: string | undefined;
+    expiresAt: number | undefined;
+    error: string | undefined;
+  }
+}
 
 // Sadece gerekli scope'ları kullanıyoruz
 const REQUIRED_SCOPES = [
@@ -66,13 +84,12 @@ const handler = NextAuth({
     }),
   ],
   callbacks: {
-    async jwt({ token, account }) {
-      if (account) {
-        return {
-          accessToken: account.access_token,
-          refreshToken: account.refresh_token,
-          expiresAt: (account.expires_at as number) * 1000,
-        };
+    async jwt({ token, account, user }) {
+      if (account && user) {
+        token.accessToken = account.access_token;
+        token.refreshToken = account.refresh_token;
+        token.expiresAt = (account.expires_at as number) * 1000;
+        return token;
       }
 
       if (token.expiresAt && Date.now() > token.expiresAt) {
@@ -82,11 +99,11 @@ const handler = NextAuth({
       return token;
     },
     async session({ session, token }) {
-      return {
-        ...session,
-        accessToken: token.accessToken,
-        error: token.error || null,
-      };
+      if (session.user) {
+        session.accessToken = token.accessToken;
+        session.error = token.error || null;
+      }
+      return session;
     }
   },
   pages: {

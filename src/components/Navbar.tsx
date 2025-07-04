@@ -83,16 +83,22 @@ export default function Navbar() {
 
         {session && (
           <motion.div 
-            className="w-8 h-8 rounded-full bg-emerald-800/30 overflow-hidden"
+            className="w-8 h-8 rounded-full bg-emerald-800/30 overflow-hidden flex items-center justify-center"
             whileHover={{ scale: 1.05 }}
           >
-            <Image
-              src={session.user?.image || "/default-avatar.png"}
-              alt="Profile"
-              width={32}
-              height={32}
-              className="object-cover"
-            />
+            {session.user?.image ? (
+              <Image
+                src={session.user.image}
+                alt="Profile"
+                width={32}
+                height={32}
+                className="object-cover"
+              />
+            ) : (
+              <span className="text-sm font-semibold text-emerald-400">
+                {session.user?.name?.[0]?.toUpperCase() || '?'}
+              </span>
+            )}
           </motion.div>
         )}
       </div>

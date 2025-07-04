@@ -358,6 +358,7 @@ export default function GamePage() {
             </motion.div>
           )}
 
+          {!gameStarted && (
           <motion.button 
             whileHover={{ scale: 1.05, backgroundColor: "rgba(76, 175, 80, 0.25)" }}
             whileTap={{ scale: 0.95 }}
@@ -366,7 +367,7 @@ export default function GamePage() {
           >
             Başla
           </motion.button>
-
+          )}
           {/* Song Info & Audio Player */}
           <AnimatePresence>
             {currentSongUrl && (
