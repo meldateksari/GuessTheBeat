@@ -103,7 +103,7 @@ export default function SecretPage() {
               }}
               className="font-medium"
             >
-              Melda
+              Meldaa
             </motion.span>{" "}
             <motion.span
               initial={{ opacity: 0 }}
