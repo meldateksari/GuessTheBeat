@@ -52,6 +52,7 @@ export default function GamePage() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [showWinScreen, setShowWinScreen] = useState(false);
   const [guessTime, setGuessTime] = useState(LISTENING_STAGES[0]);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   // Deezer'dan şarkı arama fonksiyonu
   const searchDeezerTracks = async (query: string) => {
@@ -261,77 +262,99 @@ export default function GamePage() {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="flex h-screen bg-gradient-to-b from-[#0A1D14] to-[#0F2A1D] text-white/90 overflow-hidden"
+      className="flex h-screen bg-gradient-to-b from-[#0A1D14] to-[#0F2A1D] text-white/90 overflow-hidden relative"
       whileHover={{
         background: "linear-gradient(to bottom, #0C2218, #133524)",
         transition: { duration: 0.6 }
       }}
     >
-      {/* Playlist Sidebar */}
-      <motion.div 
-        initial={{ x: -50, opacity: 0 }}
-        animate={{ x: 0, opacity: 1 }}
-        transition={{ duration: 0.6 }}
-        className="w-80 bg-black/20 backdrop-blur-lg p-6 overflow-y-auto border-r border-white/5 h-screen"
+      {/* Toggle Button for Sidebar */}
+      <motion.button
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+        className="fixed top-4 left-4 z-50 bg-emerald-500/20 p-2 rounded-lg border border-emerald-500/30 hover:bg-emerald-500/30 transition-all duration-300"
       >
-        <motion.h2 
-          initial={{ x: -20 }}
-          animate={{ x: 0 }}
-          className="text-2xl font-light tracking-wide mb-6 text-emerald-400"
-        >
-          Çalma Listelerim
-        </motion.h2>
-        <div className="space-y-3">
-          {playlists && playlists.map((playlist) => (
-            <motion.button
-              key={playlist.id}
-              whileHover={{ scale: 1.02, backgroundColor: "rgba(76, 175, 80, 0.2)" }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => setSelectedPlaylist(playlist.id)}
-              className={`w-full flex items-center p-4 rounded-xl transition-all duration-300 ${
-                selectedPlaylist === playlist.id ? 'bg-emerald-500/20 border border-emerald-500/30' : 'hover:bg-white/5 border border-transparent'
-              }`}
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </motion.button>
+
+      {/* Playlist Sidebar */}
+      <AnimatePresence>
+        {isSidebarOpen && (
+          <motion.div 
+            initial={{ x: -320 }}
+            animate={{ x: 0 }}
+            exit={{ x: -320 }}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+            className="fixed top-0 left-0 w-80 md:w-96 bg-black/90 backdrop-blur-lg p-6 overflow-y-auto border-r border-white/5 h-screen z-40"
+          >
+            <motion.h2 
+              initial={{ x: -20 }}
+              animate={{ x: 0 }}
+              className="text-2xl font-light tracking-wide mb-6 text-emerald-400 mt-14"
             >
-              {playlist.images[0] && (
-                <Image
-                  src={playlist.images[0].url}
-                  alt={playlist.name}
-                  width={48}
-                  height={48}
-                  className="rounded-lg mr-4"
-                />
-              )}
-              <div className="text-left">
-                <div className="font-light tracking-wide text-white/90">{playlist.name}</div>
-                <div className="text-sm text-white/50">{playlist.tracks.total} şarkı</div>
-              </div>
-            </motion.button>
-          ))}
-        </div>
-      </motion.div>
+              Çalma Listelerim
+            </motion.h2>
+            <div className="space-y-3">
+              {playlists && playlists.map((playlist) => (
+                <motion.button
+                  key={playlist.id}
+                  whileHover={{ scale: 1.02, backgroundColor: "rgba(76, 175, 80, 0.2)" }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => {
+                    setSelectedPlaylist(playlist.id);
+                    if (window.innerWidth < 768) {
+                      setIsSidebarOpen(false);
+                    }
+                  }}
+                  className={`w-full flex items-center p-4 rounded-xl transition-all duration-300 ${
+                    selectedPlaylist === playlist.id ? 'bg-emerald-500/20 border border-emerald-500/30' : 'hover:bg-white/5 border border-transparent'
+                  }`}
+                >
+                  {playlist.images[0] && (
+                    <Image
+                      src={playlist.images[0].url}
+                      alt={playlist.name}
+                      width={48}
+                      height={48}
+                      className="rounded-lg mr-4"
+                    />
+                  )}
+                  <div className="text-left">
+                    <div className="font-light tracking-wide text-white/90">{playlist.name}</div>
+                    <div className="text-sm text-white/50">{playlist.tracks.total} şarkı</div>
+                  </div>
+                </motion.button>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Main Content */}
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8, delay: 0.2 }}
-        className="flex-1 flex flex-col items-center p-8 h-screen overflow-hidden relative"
+        className="flex-1 flex flex-col items-center p-4 md:p-8 h-screen overflow-hidden relative"
       >
         <motion.div 
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="text-center max-w-xl w-full mt-16"
+          className="text-center w-full max-w-xl mt-8 md:mt-16 px-4"
         >
           <motion.h1 
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ duration: 0.6 }}
-            className="text-4xl font-light tracking-wide mb-4"
+            className="text-2xl md:text-4xl font-light tracking-wide mb-4"
           >
             <span className="font-semibold text-emerald-400">Şarkıyı</span> Tahmin Et
           </motion.h1>
 
-          {/* Score Display - Yeni konum */}
+          {/* Score Display */}
           <AnimatePresence>
             {gameStarted && (
               <motion.div 
@@ -340,25 +363,24 @@ export default function GamePage() {
                 exit={{ opacity: 0, y: -10 }}
                 className="mb-8 text-center"
               >
-                <div className="text-lg font-semibold">
+                <div className="text-base md:text-lg font-semibold">
                   Skor: <span className="text-emerald-400 font-bold">{score}</span>
                 </div>
               </motion.div>
             )}
           </AnimatePresence>
-
           
-
           {!gameStarted && (
-          <motion.button 
-            whileHover={{ scale: 1.05, backgroundColor: "rgba(76, 175, 80, 0.25)" }}
-            whileTap={{ scale: 0.95 }}
-            onClick={startNewSong}
-            className="bg-emerald-500/20 text-white/90 px-10 py-4 rounded-xl text-lg border border-emerald-500/30 hover:border-emerald-500/50 transition-all duration-300 mb-8 font-light tracking-wide shadow-lg shadow-emerald-500/10"
-          >
-            Başla
-          </motion.button>
+            <motion.button 
+              whileHover={{ scale: 1.05, backgroundColor: "rgba(76, 175, 80, 0.25)" }}
+              whileTap={{ scale: 0.95 }}
+              onClick={startNewSong}
+              className="bg-emerald-500/20 text-white/90 px-6 md:px-10 py-3 md:py-4 rounded-xl text-base md:text-lg border border-emerald-500/30 hover:border-emerald-500/50 transition-all duration-300 mb-8 font-light tracking-wide shadow-lg shadow-emerald-500/10"
+            >
+              Başla
+            </motion.button>
           )}
+
           {/* Song Info & Audio Player */}
           <AnimatePresence>
             {currentSongUrl && (
@@ -366,7 +388,7 @@ export default function GamePage() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 20 }}
-                className="mt-6 space-y-4 backdrop-blur-lg bg-white/5 p-8 rounded-2xl border border-white/10 shadow-xl shadow-emerald-500/5"
+                className="mt-6 space-y-4 backdrop-blur-lg bg-white/5 p-4 md:p-8 rounded-2xl border border-white/10 shadow-xl shadow-emerald-500/5"
               >
                 {/* Progress Bar */}
                 <div className="w-full bg-white/10 rounded-full h-2 mb-4">
@@ -506,7 +528,7 @@ export default function GamePage() {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   onSubmit={handleGuessSubmit} 
-                  className="flex flex-col items-center gap-3 mb-4"
+                  className="flex flex-col items-center gap-4 w-full mb-4"
                 >
                   <div className="relative w-full">
                     <motion.input
@@ -516,7 +538,7 @@ export default function GamePage() {
                       onChange={handleInputChange}
                       onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
                       placeholder="Şarkı adını tahmin et..."
-                      className="w-full px-4 py-2 rounded-xl bg-white/5 border border-emerald-500/30 text-white/90 focus:border-emerald-500/50 focus:outline-none transition-all duration-300 font-light text-sm"
+                      className="w-full px-4 py-3 rounded-xl bg-white/5 border border-emerald-500/30 text-white/90 focus:border-emerald-500/50 focus:outline-none transition-all duration-300 font-light text-base"
                     />
                     <AnimatePresence>
                       {showDropdown && searchResults.length > 0 && (
@@ -536,7 +558,7 @@ export default function GamePage() {
                                   e.preventDefault();
                                   handleSongSelect(track);
                                 }}
-                                className="w-full text-left px-4 py-2.5 text-white/90 hover:bg-emerald-500/20 transition-all duration-300 first:rounded-t-xl last:rounded-b-xl border-b border-emerald-500/10 last:border-b-0 cursor-pointer text-sm"
+                                className="w-full text-left px-4 py-3 text-white/90 hover:bg-emerald-500/20 transition-all duration-300 first:rounded-t-xl last:rounded-b-xl border-b border-emerald-500/10 last:border-b-0 cursor-pointer text-base"
                               >
                                 <div className="font-light truncate">{track.title} - {track.artist.name}</div>
                               </motion.div>
@@ -550,7 +572,7 @@ export default function GamePage() {
                     whileHover={{ scale: 1.05, backgroundColor: "rgba(76, 175, 80, 0.25)" }}
                     whileTap={{ scale: 0.95 }}
                     type="submit"
-                    className="bg-emerald-500/20 text-white/90 px-6 py-2 rounded-xl border border-emerald-500/30 hover:border-emerald-500/50 transition-all duration-300 font-light tracking-wide text-sm"
+                    className="w-full md:w-auto bg-emerald-500/20 text-white/90 px-6 py-3 rounded-xl border border-emerald-500/30 hover:border-emerald-500/50 transition-all duration-300 font-light tracking-wide text-base min-h-[48px] active:bg-emerald-500/30 touch-manipulation"
                   >
                     Tahmin Et
                   </motion.button>
@@ -582,6 +604,7 @@ export default function GamePage() {
         </motion.div>
       </motion.div>
 
+      {/* Win Screen */}
       <AnimatePresence>
         {showWinScreen && currentSongName && (
           <WinScreen
@@ -591,6 +614,19 @@ export default function GamePage() {
             onNextSong={handleNextSong}
             onShare={handleShare}
             onBack={() => setShowWinScreen(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Overlay for mobile when sidebar is open */}
+      <AnimatePresence>
+        {isSidebarOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setIsSidebarOpen(false)}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-30 md:hidden"
           />
         )}
       </AnimatePresence>
