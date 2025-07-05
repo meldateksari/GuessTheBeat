@@ -347,16 +347,7 @@ export default function GamePage() {
             )}
           </AnimatePresence>
 
-          {/* Debug: Şarkı Adı */}
-          {currentSongName && (
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="text-sm text-yellow-400/70 mb-6"
-            >
-              Debug - Şarkı: {currentSongName}
-            </motion.div>
-          )}
+          
 
           {!gameStarted && (
           <motion.button 
