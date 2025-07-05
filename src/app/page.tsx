@@ -11,51 +11,76 @@ export default function Home() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [scrollCount, setScrollCount] = useState(0);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const lastScrollTime = useRef<number>(0);
   const resetTimeout = useRef<NodeJS.Timeout | null>(null);
+  const touchStartY = useRef<number>(0);
 
-  // Scroll olayını dinle
+  // Scroll ve touch olaylarını dinle
   useEffect(() => {
     const handleScroll = (e: WheelEvent) => {
       if (e.deltaY < 0) { // Yukarı scroll
-        const now = Date.now();
-        const timeSinceLastScroll = now - lastScrollTime.current;
+        handleScrollAction();
+      }
+    };
 
-        // İlk scroll veya son scroll'dan 2 saniye geçtiyse
-        if (scrollCount === 0 || timeSinceLastScroll >= 2000) {
-          // Sayacı artır ve konsola yazdır
-          setScrollCount(prev => {
-            const newCount = prev + 1;
-            return newCount;
-          });
+    const handleTouchStart = (e: TouchEvent) => {
+      touchStartY.current = e.touches[0].clientY;
+    };
 
-          // Son scroll zamanını güncelle
-          lastScrollTime.current = now;
+    const handleTouchEnd = (e: TouchEvent) => {
+      const touchEndY = e.changedTouches[0].clientY;
+      const deltaY = touchEndY - touchStartY.current;
+      
+      if (deltaY > 10) { // Yukarı kaydırma eşiğini 10px'e düşürdük
+        handleScrollAction();
+      }
+    };
 
-          // 5 saniye sonra sayacı sıfırlayacak zamanlayıcıyı ayarla
+    const handleScrollAction = () => {
+      const now = Date.now();
+      const timeSinceLastScroll = now - lastScrollTime.current;
+
+      // İlk scroll veya son scroll'dan 2 saniye geçtiyse
+      if (scrollCount === 0 || timeSinceLastScroll >= 2000) {
+        // Sayacı artır
+        setScrollCount(prev => {
+          const newCount = prev + 1;
+          return newCount;
+        });
+
+        // Son scroll zamanını güncelle
+        lastScrollTime.current = now;
+
+        // 5 saniye sonra sayacı sıfırlayacak zamanlayıcıyı ayarla
+        if (resetTimeout.current) {
+          clearTimeout(resetTimeout.current);
+        }
+        resetTimeout.current = setTimeout(() => {
+          setScrollCount(0);
+        }, 5000);
+
+        // Eğer 3. scroll'a ulaşıldıysa
+        if (scrollCount === 2) {
+          router.push('/keep-shining');
+          setScrollCount(0);
           if (resetTimeout.current) {
             clearTimeout(resetTimeout.current);
-          }
-          resetTimeout.current = setTimeout(() => {
-            setScrollCount(0);
-          }, 5000);
-
-          // Eğer 3. scroll'a ulaşıldıysa
-          if (scrollCount === 2) {
-            router.push('/keep-shining');
-            setScrollCount(0);
-            if (resetTimeout.current) {
-              clearTimeout(resetTimeout.current);
-            }
           }
         }
       }
     };
 
+    // Event listener'ları ekle
     window.addEventListener('wheel', handleScroll);
+    window.addEventListener('touchstart', handleTouchStart);
+    window.addEventListener('touchend', handleTouchEnd);
 
     return () => {
+      // Event listener'ları temizle
       window.removeEventListener('wheel', handleScroll);
+      window.removeEventListener('touchstart', handleTouchStart);
+      window.removeEventListener('touchend', handleTouchEnd);
       if (resetTimeout.current) {
         clearTimeout(resetTimeout.current);
       }
@@ -116,10 +141,10 @@ export default function Home() {
 
   return (
     <>
-      <Navbar />
+      <Navbar isMenuOpen={isMenuOpen} setIsMenuOpen={setIsMenuOpen} />
       <AnimatePresence mode="wait">
         <motion.div 
-          className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-[#0A1D14] to-[#0F2A1D] text-white/90 p-4 pt-20"
+          className={`flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-[#0A1D14] to-[#0F2A1D] text-white/90 p-4 pt-20 mb-[15px] transition-all duration-300 ${isMenuOpen ? 'blur-[2px]' : ''}`}
           initial="initial"
           animate="animate"
           exit="exit"
@@ -158,7 +183,7 @@ export default function Home() {
               {session ? (
                 <Link href="/game" className="group relative w-full py-4 px-6 bg-emerald-500/10 rounded-xl hover:bg-emerald-500/20 transition-all duration-300 text-center overflow-hidden">
                 <span className="relative z-10 font-light tracking-wide flex items-center justify-center gap-2">
-                  Oyuna Geç
+                  Play Now
                 </span>
                 </Link>
               ):(
