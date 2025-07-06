@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Navbar from "../components/Navbar";
 import { motion, AnimatePresence, Variants } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 export default function Home() {
   const { data: session, status } = useSession();
@@ -195,7 +196,7 @@ export default function Home() {
               >
                 <span className="relative z-10 font-light tracking-wide flex items-center justify-center gap-2">
                   {status === "loading" ? (
-                    "Loading..."
+                    <LoadingSpinner size="sm" />
                   ) : (
                     <>
                       <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">

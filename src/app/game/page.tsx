@@ -9,6 +9,7 @@ import { SpotifyService } from '@/services/spotify';
 import { DeezerService } from '@/services/deezer';
 import { getRandomSongFromPlaylists } from '@/utils/spotify';
 import WinScreen from '@/components/WinScreen';
+import LoadingSpinner from '@/components/LoadingSpinner';
 
 interface Playlist {
   id: string;
@@ -33,7 +34,7 @@ const LISTENING_STAGES = [0.5, 1, 3, 5, 10, 15];
 
 export default function GamePage() {
   const router = useRouter();
-  const { data: session, status } = useSession();
+  const { data: session, status, update } = useSession();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
@@ -53,6 +54,36 @@ export default function GamePage() {
   const [showWinScreen, setShowWinScreen] = useState(false);
   const [guessTime, setGuessTime] = useState(LISTENING_STAGES[0]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
+
+  // Session refresh dinleyicisi
+  useEffect(() => {
+    const handleSessionRefresh = async () => {
+      try {
+        console.log('Session yenileme tetiklendi...');
+        await update(); // Session'ı yenile
+        setRetryCount(prev => prev + 1);
+      } catch (error) {
+        console.error('Session yenileme hatası:', error);
+      }
+    };
+
+    window.addEventListener('forceSessionRefresh', handleSessionRefresh);
+    return () => {
+      window.removeEventListener('forceSessionRefresh', handleSessionRefresh);
+    };
+  }, [update]);
+
+  // Session error kontrolü
+  useEffect(() => {
+    if (session?.error === 'RefreshAccessTokenError') {
+      console.log('Token yenileme hatası tespit edildi, yeniden giriş gerekli');
+      setError('Oturum süresi doldu. Lütfen tekrar giriş yapın.');
+      setTimeout(() => {
+        router.push('/');
+      }, 3000);
+    }
+  }, [session, router]);
 
   // Deezer'dan şarkı arama fonksiyonu
   const searchDeezerTracks = async (query: string) => {
@@ -98,26 +129,41 @@ export default function GamePage() {
     // Form submit işlemi kaldırıldı - kullanıcı manuel olarak Tahmin Et butonuna tıklayacak
   };
 
-  // Playlistleri getir
+  // Playlistleri getir - retry mekanizması ile
   useEffect(() => {
     const fetchPlaylists = async () => {
-      if (!session?.accessToken) return;
+      if (!session?.accessToken) {
+        setIsLoading(false);
+        return;
+      }
 
       try {
+        setError(null);
         const playlistData = await SpotifyService.getUserPlaylists(session.accessToken);
         setPlaylists(playlistData);
         setIsLoading(false);
+        setRetryCount(0); // Başarılı olursa retry sayacını sıfırla
       } catch (error) {
         console.error('Error fetching playlists:', error);
-        setError(error instanceof Error ? error.message : 'An error occurred while loading playlists');
-        setIsLoading(false);
+        const errorMessage = error instanceof Error ? error.message : 'Playlist bilgileri yüklenirken hata oluştu';
+        
+        // Retry mekanizması - maksimum 3 deneme
+        if (retryCount < 3) {
+          setError(`${errorMessage} Tekrar deneniyor... (${retryCount + 1}/3)`);
+          setTimeout(() => {
+            setRetryCount(prev => prev + 1);
+          }, 2000);
+        } else {
+          setError(errorMessage);
+          setIsLoading(false);
+        }
       }
     };
 
-    if (session?.accessToken) {
+    if (session?.accessToken || retryCount > 0) {
       fetchPlaylists();
     }
-  }, [session]);
+  }, [session, retryCount]);
 
   // Oturum kontrolü
   useEffect(() => {
@@ -142,12 +188,16 @@ export default function GamePage() {
     }, duration * 1000);
   };
 
-  // Yeni şarkı başlatıldığında
+  // Yeni şarkı başlatıldığında - retry mekanizması ile
   const startNewSong = async () => {
-    if (!session?.accessToken) return;
+    if (!session?.accessToken) {
+      setError('Oturum bilgisi bulunamadı. Lütfen sayfayı yenileyip tekrar deneyin.');
+      return;
+    }
 
     try {
       setIsLoading(true);
+      setError(null);
       setShowAnswer(false);
       setCurrentStageIndex(0);
       setGuess('');
@@ -171,9 +221,57 @@ export default function GamePage() {
       }
     } catch (error) {
       console.error('Error loading song:', error);
-      setError(error instanceof Error ? error.message : 'An error occurred while loading the song');
+      const errorMessage = error instanceof Error ? error.message : 'Şarkı yüklenirken hata oluştu';
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Sıradaki şarkıya geç - yalnızca oyun alanını yeniler
+  const goToNextSong = async () => {
+    if (!session?.accessToken) {
+      setError('Oturum bilgisi bulunamadı.');
+      return;
+    }
+
+    try {
+      // Sadece gerekli state'leri sıfırla
+      setError(null);
+      setShowAnswer(false);
+      setCurrentStageIndex(0);
+      setGuess('');
+      setSearchResults([]);
+      setShowDropdown(false);
+      setGuessTime(LISTENING_STAGES[0]);
+      
+      // Ses durdur
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+      }
+      setIsPlaying(false);
+      
+      // Get random song from Spotify
+      const songName = await getRandomSongFromPlaylists(session.accessToken);
+      setCurrentSongName(songName);
+      
+      // Get song URL from Deezer
+      const previewUrl = await DeezerService.searchTrack(songName);
+      
+      if (previewUrl && previewUrl.length > 0) {
+        setCurrentSongUrl(previewUrl[0].preview);
+        // Yeni şarkıyı otomatik olarak başlat
+        setTimeout(() => {
+          playSongSegment(LISTENING_STAGES[0]);
+        }, 500);
+      } else {
+        throw new Error('Şarkı önizlemesi bulunamadı');
+      }
+    } catch (error) {
+      console.error('Error loading next song:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Şarkı yüklenirken hata oluştu';
+      setError(errorMessage);
     }
   };
 
@@ -244,15 +342,26 @@ export default function GamePage() {
   if (status === "loading" || isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-[#0A1D14] text-white">
-        <div className="text-xl">Loading...</div>
+        <LoadingSpinner 
+          size="lg" 
+          text={retryCount > 0 ? `Veriler yükleniyor... (${retryCount}/3)` : 'Yükleniyor...'}
+        />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-[#0A1D14] text-white">
-        <div className="text-xl text-red-500">{error}</div>
+      <div className="flex flex-col items-center justify-center min-h-screen bg-[#0A1D14] text-white p-4">
+        <div className="text-xl text-red-500 mb-4 text-center">{error}</div>
+        {retryCount < 3 && (
+          <button 
+            onClick={() => setRetryCount(prev => prev + 1)}
+            className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors"
+          >
+            Tekrar Dene
+          </button>
+        )}
       </div>
     );
   }
@@ -509,17 +618,19 @@ export default function GamePage() {
                 <motion.button
                   whileHover={{ scale: 1.02, backgroundColor: "rgba(44, 95, 45, 0.3)" }}
                   whileTap={{ scale: 0.98 }}
-                  onClick={handleSkip}
-                  disabled={currentStageIndex >= LISTENING_STAGES.length - 1 || isPlaying}
+                  onClick={currentStageIndex >= LISTENING_STAGES.length - 1 ? goToNextSong : handleSkip}
+                  disabled={isPlaying}
                   className={`w-full bg-[#2C5F2D]/20 text-white/90 px-6 py-3 rounded-xl mb-4 text-sm border border-[#2C5F2D]/30 transition-all duration-300 ${
-                    (currentStageIndex >= LISTENING_STAGES.length - 1 || isPlaying)
+                    isPlaying
                       ? 'opacity-50 cursor-not-allowed' 
                       : 'hover:border-[#2C5F2D]/50'
                   }`}
                 >
                   {isPlaying 
                     ? 'Şarkı Çalınıyor...' 
-                    : `Daha Uzun Dinle (${LISTENING_STAGES[currentStageIndex + 1]} saniye)`
+                    : currentStageIndex >= LISTENING_STAGES.length - 1
+                      ? 'Sıradaki Şarkı'
+                      : `Daha Uzun Dinle (${LISTENING_STAGES[currentStageIndex + 1]} saniye)`
                   }
                 </motion.button>
 
