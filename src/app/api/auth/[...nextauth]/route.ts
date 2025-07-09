@@ -19,14 +19,18 @@ declare module "next-auth/jwt" {
   }
 }
 
-// Sadece gerekli scope'ları kullanıyoruz
+// Tüm gerekli scope'ları ekliyoruz - iOS Safari için
 const REQUIRED_SCOPES = [
   "streaming",
-  "user-read-email",
+  "user-read-email", 
+  "user-read-private",
   "playlist-read-private",
+  "playlist-read-collaborative", 
+  "user-library-read",
   "user-read-playback-state",
   "user-modify-playback-state",
-  "user-read-currently-playing"
+  "user-read-currently-playing",
+  "user-read-recently-played"
 ] as const;
 
 const SPOTIFY_REFRESH_TOKEN_URL = 'https://accounts.spotify.com/api/token';
